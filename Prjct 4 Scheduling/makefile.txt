@@ -1,0 +1,11 @@
+all:
+        gcc -g -o user user.c -lpthread -lrt
+        gcc -g -o oss oss.c -lpthread -lrt
+
+clean:
+        rm -rf user
+        rm -rf oss
+        rm -rf *.o
+
+run:
+        ./oss
