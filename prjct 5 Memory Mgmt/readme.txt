@@ -1,5 +1,5 @@
 Read me file:
-kuppubab.5 contains assignment submission programs.
+prjct.5 contains assignment submission programs.
 
 res.h //Shared Memory Timer, Resource Descriptor datastructure
 makefile //creates object files of oss.c as oss and user.c as user
