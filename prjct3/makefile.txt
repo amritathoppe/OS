@@ -1,0 +1,14 @@
+CC = gcc
+CFLAGS = -g
+RM =rm -f
+
+default:all
+all : oss ouser
+
+oss: oss.c
+        $(CC) $(CFLAGS) -o oss oss.c -lpthread -lrt
+ouser:user.c
+        $(CC) $(CFLAGS) -o ouser user.c -lpthread -lrt
+clean:
+        rm -f oss ouser
+
