@@ -1,5 +1,5 @@
 Read me file:
-kuppubab.1 contains assignment submission programs.
+prjct1 contains assignment submission programs.
 exqn folder contains the files for the Ex 3.8. solutions
 hwqn folder contains the files for the getopt and perror in Assignment.
 
