@@ -1,5 +1,5 @@
 Read me file:
-kuppubab.2 contains assignment submission programs.
+prjt 2 contains assignment submission programs.
 
 content.h //Shared Memory datastructure
 makefile //creates object files of master.c as omaster and worker.c as oworker
