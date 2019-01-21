@@ -1,0 +1,12 @@
+CC = gcc
+CFLAGS = -g
+RM =rm -f
+
+default:all
+all : omaster oworker
+omaster: master.c
+        $(CC) $(CFLAGS) -o omaster master.c
+oworker:worker.c
+        $(CC) $(CFLAGS) -o oworker worker.c
+clean:
+        rm -f omaster oworker

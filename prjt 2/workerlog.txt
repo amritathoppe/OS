@@ -1,0 +1,18 @@
+
+RCS file: worker.c,v
+Working file: worker.c
+head: 1.1
+branch:
+locks: strict
+        kuppubab: 1.1
+access list:
+symbolic names:
+keyword substitution: kv
+total revisions: 1;     selected revisions: 1
+description:
+----------------------------
+revision 1.1    locked by: kuppubab;
+date: 2018/09/27 18:09:36;  author: kuppubab;  state: Exp;
+Initial revision
+=============================================================================
+
