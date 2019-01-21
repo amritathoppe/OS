@@ -1,0 +1,107 @@
+#include "header.h"
+
+void signal_handler_func(int signum)
+{
+        signal(SIGINT, signal_handler_func);
+
+        exit(0);
+}
+
+
+int main (int argc, char *argv[])
+{
+        signal(SIGINT,signal_handler_func);
+        int cid = atoi(argv[1]);
+        char sem_name[50];
+        int used_burst_time = 0;
+        int wait_time = 0;
+        int this_quanta = 0;
+        int remaining_burst = 0;
+        int fd = get_file_descriptor(sizeof(PCB), cid);
+        int terminate_process;
+        void *shmem = get_shared_memory(sizeof(PCB), cid, fd);
+
+        PCB *pcb = (PCB *)shmem;
+        pcb->total_system_time = 0;
+        pcb->total_wait_time = 0;
+
+        remaining_burst = pcb->total_cpu_time;
+        memset(sem_name, '\0', sizeof(sem_name));;
+        sprintf(sem_name, "child4_%d_sem", cid);
+
+        initialise_rand();
+
+
+        sem_t *parent_sem = sem_open("parent_sem", O_RDWR);
+        sem_t *child_sem = sem_open(sem_name, O_RDWR);
+
+
+        while(used_burst_time < pcb->total_cpu_time) {
+
+                sem_wait(child_sem);
+                strcpy(pcb->state, "running");
+
+                pcb->process_criteria = uniform_distribution(0, 3);
+                remaining_burst = pcb->total_cpu_time - pcb->total_system_time + pcb->total_wait_time;
+
+                terminate_process = 0;
+                if(pcb->process_criteria == TERMINATE_PROCESS) {//Case 0: Termination
+                        wait_time += 0;
+                        used_burst_time += 0;
+                        pcb->total_system_time += 0;
+
+                        if(pcb->total_system_time > 50000) {//Case 1:terminate if morethan 50 millisecs
+                                terminate_process = 1;
+                        }
+                } else if(pcb->process_criteria == TERMINATE_AT_QUANTUM) {//Terminate after using quantum
+                        wait_time += 0;
+                        if(pcb->quantum >= remaining_burst) {
+                                this_quanta = pcb->quantum;
+                        } else {
+                                this_quanta = remaining_burst;
+                        }
+                        usleep(this_quanta);
+                        used_burst_time += this_quanta;
+                        pcb->total_system_time += this_quanta;
+                        pcb->last_burst_time = this_quanta;
+                } else if(pcb->process_criteria == WAIT_FOR_EVENT) {//Case 2:Waiting for Event
+                        wait_time = uniform_distribution(0, 5) * uniform_distribution(0, 1000);
+                        strcpy(pcb->state, "waiting");
+                        usleep(wait_time);
+                        strcpy(pcb->state, "running");
+                        if(pcb->quantum >= remaining_burst) {
+                                this_quanta = pcb->quantum;
+                        } else {
+                                this_quanta = remaining_burst;
+                        }
+
+                        usleep(this_quanta);
+                        used_burst_time += this_quanta;
+                        pcb->total_system_time += this_quanta + wait_time;
+                        pcb->total_wait_time += wait_time;
+                        pcb->last_burst_time = this_quanta;
+                } else if(pcb->process_criteria == PREEMPT) {//Case 3: Preemption
+                        wait_time += 0;
+                        this_quanta = uniform_distribution(0, pcb->quantum);
+
+                        if(this_quanta > remaining_burst) {
+                                this_quanta = remaining_burst;
+                        }
+
+                        usleep(this_quanta);
+                        used_burst_time += this_quanta;
+                        pcb->total_system_time += this_quanta;
+                        pcb->last_burst_time = this_quanta;
+                }
+                strcpy(pcb->state, "waiting");
+                if(used_burst_time >= pcb->total_cpu_time || terminate_process == 1) {
+                        strcpy(pcb->state, "finished");
+                        pcb->total_system_time = pcb->total_wait_time + pcb->total_cpu_time;
+                }
+                memcpy(shmem, pcb, sizeof(PCB));
+                sem_post(parent_sem);
+        }
+
+
+        return 0;
+}
