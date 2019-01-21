@@ -1,0 +1,42 @@
+#include "header.h"
+
+void signal_handler_func(int signum)
+{
+        signal(SIGINT, signal_handler_func);
+        exit(0);
+}
+
+int main (int argc, char *argv[])
+{
+        signal(SIGINT,signal_handler_func);
+        int cid = atoi(argv[1]);
+        void *shmem = get_shared_memory(sizeof(REFERENCE_DETAIL), cid);
+        char sem_name[50];
+        int mem_ref = 0, ref_type = 0, terminate = 0;
+        REFERENCE_DETAIL *ref = (REFERENCE_DETAIL *)shmem;
+        int ref_count = 0;
+
+        memset(sem_name, '\0', sizeof(sem_name));
+        sprintf(sem_name, "child6_%d_sem", cid);
+
+        sem_t *child_sem = sem_open(sem_name, O_RDWR);
+
+        while(1) {
+                sem_wait(child_sem);
+                ref_count++;
+                mem_ref = uniform_distribution(0, MEMORY_LIMIT);
+                ref_type = uniform_distribution(0, 1);
+                ref->page_index = mem_ref;
+                ref->ref_type = ref_type;
+                ref->is_new = 1;
+
+                if(ref_count % 200 == 0 || ref_count == 900 || ref_count == 1100) {
+                        terminate = uniform_distribution(0, MEMORY_LIMIT);
+                        ref->terminate = terminate;
+                }
+                memcpy(shmem, ref, sizeof(REFERENCE_DETAIL));
+        }
+
+
+        return 0;
+}

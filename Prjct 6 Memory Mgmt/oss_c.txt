@@ -1,0 +1,360 @@
+#include "header.h"
+
+sem_t **child_sem;
+
+
+void **shmem;
+
+int process_index_counter = 0;
+int page_fault_count = 0, memory_accessed = 0;
+int terminate_process = 0;
+pid_t *child_pid;
+REFERENCE_DETAIL *refr_detail;
+
+void print_summary() {
+        printf("\nIn print summary\n");
+        long long totalNanoSeconds = new_time->seconds * 1000000000 + new_time->nanoseconds;
+        float seconds = (totalNanoSeconds * 1.0) / 1000000000.0;
+        float mem_access = memory_accessed / seconds;
+        float page_fault_rate = (page_fault_count * 1.0) / memory_accessed;
+        float avg_speed = (memory_accessed * 1.0 ) / ((page_fault_count * 15.0 ) + ((10.0 * (memory_accessed - page_fault_count)) / 1000000000.0));
+        avg_speed *= 1000000000.0;
+        printf("Memory Accessed: %d\n", memory_accessed);
+        printf("Page Fault: %d\n", page_fault_count);
+        printf("Number of memory accesses per seond: %f\nNumber of page faults per memory access: %f\nAverage memory access speed: %f\n", mem_access, page_fault_rate, avg_speed);
+        fflush(stdout);
+}
+
+
+int create_child(int child_index){
+
+        pid_t pid;
+        char index[20];
+        memset(index, '\0', sizeof(index));
+        sprintf(index, "%d", child_index);
+
+        pid = fork();
+        switch(pid){
+                case -1:
+                        perror("fork");
+                        return -1;
+                case 0:
+
+                        execl(CHILD_EXE, CHILD_EXE, index, NULL);
+                default:
+                        return pid;
+        }
+
+        return -1;
+}
+
+void clean_semaphore()
+{
+        int childCount = 0;
+        char child_sem_name[50];
+
+
+        for (childCount = 0; childCount < max_child; childCount++) {
+                memset(child_sem_name, '\0', sizeof(child_sem_name));
+                sprintf(child_sem_name, "child6_%d_sem", childCount);
+
+                sem_unlink(child_sem_name);
+        }
+}
+
+void kill_childs()
+{
+        int childCount = 0;
+
+        for (childCount = 0; childCount < max_child; childCount++) {
+                kill(child_pid[childCount], SIGKILL);
+        }
+}
+
+void cleanup()
+{
+        int i = 0;
+        char file_name[50];
+
+        terminate_process = 1;
+        kill_childs();
+        clean_semaphore();
+        for (i = 0; i < max_child; i++) {
+                munmap(shmem[i], sizeof(REFERENCE_DETAIL));
+                memset(file_name, '\0', sizeof(file_name));
+                sprintf(file_name, "memory_%d", index);
+                remove(file_name);
+        }
+
+}
+
+void signal_handler_func(int signum)
+{
+        print_summary();
+        signal(SIGINT, signal_handler_func);
+        printf("\n Ctrl + c is pressed\n");
+        printf("Cleanup initiated\n");
+        cleanup();
+        exit(0);
+
+}
+void signal_alarm(int signum)
+{
+        print_summary();
+        signal(SIGALRM, signal_alarm);
+        printf("\n Alarm  is called\n");
+        cleanup();
+        exit(0);
+}
+
+void usage(char *argv[])
+{
+        printf("%s <max_child>\nwhere max_child can have max value of 18", argv[0]);
+}
+
+int load_page(REFERENCE_DETAIL *ref, int childCount)
+{
+        int last_queue_index = page_index_minus();
+
+        while(page_queue_index != last_queue_index) {
+                if(page_table[page_queue_index].second_chance == 0) {
+
+                        page_table[page_queue_index].refrenced_by = childCount;
+                        page_table[page_queue_index].second_chance = 0;
+
+                        if(ref->ref_type == 1) {
+                                page_table[page_queue_index].dirtyBit = 1;
+                        } else {
+                                page_table[page_queue_index].dirtyBit = 0;
+                        }
+                        page_table[page_queue_index].page_index = ref->page_index;
+                        memset(buffer, '\0', sizeof(buffer));
+
+                        sprintf(buffer, "MASTER: Clearing frame %d and swapping in P%d page %d ", page_queue_index, childCount, ref->page_index);
+                        write_log(buffer);
+                        if(ref->ref_type == 1) {
+                                memset(buffer, '\0', sizeof(buffer));
+                                sprintf(buffer, "MASTER: Dirty bit of frame %d set, adding additional time to the clock ", page_queue_index);
+                                write_log(buffer);
+                        }
+
+                        return 1;
+                } else {
+                        page_table[page_queue_index].second_chance = 0;
+                }
+                increment_page_queue();
+        }
+
+        return 0;
+}
+void* second_chance_page_replacement(void *arg)
+{
+        void **child_shmem;
+        int will_schedule = 1;
+        REFERENCE_DETAIL *ref = NULL;
+        int page_fault = 1;
+        int last_queue_index = 0, i = 0;
+        CLOCK time;
+        int childCount = 0;
+
+        child_shmem = (void**)malloc(max_child * sizeof(void*));
+
+        for(i = 0; i < max_child; i++) {
+                child_shmem[i] = get_shared_memory(sizeof(REFERENCE_DETAIL), i);
+        }
+
+        while(will_schedule) {
+                if(terminate_process) {
+                        return NULL;
+                }
+
+                for (childCount = 0; childCount < max_child; childCount++) {
+                        if(terminate_process) {
+                                return NULL;
+                        }
+
+                        ref = (REFERENCE_DETAIL *)child_shmem[childCount];
+
+                        if(ref->is_new == 1) {
+                                if(ref->terminate == 1) {
+                                        memset(buffer, '\0', sizeof(buffer));
+                                        sprintf(buffer, "MASTER: P%d terminated, freeing memory occupited by it at time %lld:%lld", childCount, new_time->seconds, new_time->nanoseconds);
+                                        write_log(buffer);
+                                        for(i = 0; i < PAGE_TABLE_SIZE; i++)
+                                        {
+                                                if(page_table[i].refrenced_by == childCount) {
+                                                        page_table[i].refrenced_by = -1;
+                                                        page_table[i].second_chance = 0;
+                                                        page_table[i].dirtyBit = 0;
+                                                        page_table[i].page_index = -1;
+                                                }
+                                        }
+                                } else {
+                                        memset(buffer, '\0', sizeof(buffer));
+
+                                        if(ref->ref_type == 0) {
+                                                sprintf(buffer, "MASTER: P%d requesting read of address %d at time %lld:%lld", childCount, ref->page_index, new_time->seconds, new_time->nanoseconds);
+                                        } else {
+                                                sprintf(buffer, "MASTER: P%d requesting write of address %d at time %lld:%lld", childCount, ref->page_index, new_time->seconds, new_time->nanoseconds);
+
+                                        }
+                                        write_log(buffer);
+
+                                        page_fault = 1;
+
+                                        last_queue_index = page_index_minus();
+
+
+                                        while(page_queue_index != last_queue_index) {
+                                                if(page_table[page_queue_index].page_index == ref->page_index) {
+
+                                                        page_table[page_queue_index].refrenced_by = childCount;
+
+                                                        if(page_table[page_queue_index].second_chance == 0) {
+                                                                page_table[page_queue_index].second_chance = 1;
+                                                        }
+
+                                                        if(ref->ref_type == 1) {
+                                                                page_table[page_queue_index].dirtyBit = 1;
+                                                        } else {
+                                                                page_table[page_queue_index].dirtyBit = 0;
+                                                        }
+
+                                                        page_fault = 0;
+                                                        time = addNanoSeconds(10);
+
+                                                        memset(buffer, '\0', sizeof(buffer));
+
+                                                        if(ref->ref_type == 0) {
+                                                                sprintf(buffer, "MASTER: Address %d in frame %d, giving data to P%d at time %lld:%lld ", ref->page_index, page_queue_index, childCount, new_time->seconds, new_time->nanoseconds);
+                                                        } else {
+                                                                sprintf(buffer, "MASTER: Address %d in frame %d, writing data to P%d at time %lld:%lld ", ref->page_index, page_queue_index, childCount, new_time->seconds, new_time->nanoseconds);
+                                                        }
+                                                        write_log(buffer);
+
+                                                        break;
+                                                }
+                                                increment_page_queue();
+                                        }
+
+
+                                        if(page_fault) {
+                                                time = addMilliSeconds(15);
+                                                page_fault_count++;
+                                                memset(buffer, '\0', sizeof(buffer));
+                                                sprintf(buffer, "MASTER: Address %d not in frame, pagefault ", ref->page_index);
+                                                write_log(buffer);
+
+                                                if(load_page(ref, childCount)) {
+                                                        page_fault = 0;
+                                                }
+                                        }
+
+
+                                        if(page_fault) {
+                                                if(load_page(ref, childCount)) {
+                                                        page_fault = 0;
+                                                }
+                                        }
+
+                                        if(ref->ref_type == 1) {
+                                                memset(buffer, '\0', sizeof(buffer));
+                                                sprintf(buffer, "MASTER: Indicating to P%d that write has happened at address %d ", childCount, ref->page_index);
+                                                write_log(buffer);
+                                        }
+                                        memory_accessed++;
+
+                                        if(memory_accessed % 100 == 0) {
+                                                print_memory_map();
+                                        }
+                                }
+
+                                ref->is_new = 0;
+                                memcpy(child_shmem[childCount], ref, sizeof(REFERENCE_DETAIL));
+                                sem_post(child_sem[childCount]);
+                        }
+
+                }
+        }
+        return NULL;
+}
+int main(int argc, char *argv[])
+{
+        clean_semaphore();
+        signal(SIGINT,signal_handler_func);
+        signal(SIGALRM,signal_alarm);
+        output_file = NULL;
+        initialise_rand();
+        int sleep_time = 0;
+        pthread_t thread_id;
+        char temp[50];
+        int pid, childCount;
+        char child_sem_name[50];
+        CLOCK time;
+        page_queue_index = 0;
+        log_line = 0;
+
+        if(argc < 2) {
+                usage(argv);
+                exit(1);
+        }
+
+        if(atoi(argv[1]) < MAX_CHILD && atoi(argv[1]) > 0) {
+                max_child = atoi(argv[1]);
+        } else {
+                max_child = MAX_CHILD;
+        }
+        CLOCK_DESCRIPTOR = max_child + 1;
+        child_sem = (sem_t **)malloc(sizeof(sem_t *) * max_child);
+        refr_detail = (REFERENCE_DETAIL *)malloc(sizeof(REFERENCE_DETAIL) * max_child);
+        shmem = (void**)malloc(max_child * sizeof(void*));
+
+        child_pid = (pid_t *)malloc(max_child * sizeof(pid_t));
+
+        memset(buffer, '\0', sizeof(buffer));
+
+        init_timer();
+        initialise_page_table();
+
+
+        for (childCount = 0; childCount < max_child; childCount++) {
+                memset(child_sem_name, '\0', sizeof(child_sem_name));
+                sprintf(child_sem_name, "child6_%d_sem", childCount);
+                child_sem[childCount] = sem_open(child_sem_name, O_CREAT ,0600, 0);
+
+                sem_close(child_sem[childCount]);
+                child_sem[childCount] = sem_open(child_sem_name, O_RDWR);
+
+                shmem[childCount] = get_shared_memory(sizeof(REFERENCE_DETAIL), childCount);
+                time = addMilliSeconds(uniform_distribution(1, 500));
+
+                pid = create_child(childCount);
+                if(pid == -1) {
+                        printf("Unable to fork child\n");
+                        exit(1);
+                } else{
+                        refr_detail[childCount].ref_type = 0;
+                        refr_detail[childCount].page_index = -1;
+                        refr_detail[childCount].is_new = 0;
+                        refr_detail[childCount].terminate = 0;
+                        child_pid[childCount] = pid;
+
+                        memcpy(shmem[childCount], &refr_detail[childCount], sizeof(REFERENCE_DETAIL));
+                        if(sem_post(child_sem[childCount]) == -1) {
+                                perror("Sem Post:");
+                                exit(1);
+                        }
+                }
+        }
+
+        pthread_create(&thread_id, NULL, second_chance_page_replacement, NULL);
+
+        alarm(RUN_TIME_SECONDS);
+
+        wait(NULL);
+        cleanup();
+        print_summary();
+        return 1;
+}
+												
+
