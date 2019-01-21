@@ -1,0 +1,97 @@
+3.8.1   It actually forks the n number of processes using fork function.
+        when 3.1 program run for input 3, it generates 3 processes with its i value,process id, parent process id and child processid.
+        i:1 process ID:22752 parent ID:13554 child ID:22753
+        i:2 process ID:22753 parent ID:22752 child ID:22754
+        i:3 process ID:22754 parent ID:22753 child ID:0
+
+        When run with value 6 it generates 6 number of processes with i value ,process id,parent process id, child process id.
+        i:1 process ID:22873 parent ID:13554 child ID:22874
+        i:2 process ID:22874 parent ID:1 child ID:22875
+        i:3 process ID:22875 parent ID:22874 child ID:22876
+        i:4 process ID:22876 parent ID:22875 child ID:22877
+        [kuppubab@hoare7 exqn]$ i:6 process ID:22878 parent ID:22877 child ID:0
+        i:5 process ID:22877 parent ID:1 child ID:22878
+
+3.8.2   when the input is 4 via command line argument, the results are as follows,
+        i=1 pid=24027, parent pid=13554, child pid=24028
+        i=2 pid=24028, parent pid=1,     child pid=24029
+        i=3 pid=24029, parent pid=24028, child pid=24030
+        i=4 pid=24030, parent pid=24029, child pid=0
+        Hence the diagram will look like,
+        1 pid=24027
+        2 pid=24028
+        3 pid=24029
+        4 pid=24030
+
+3.8.3   Since we are all sharing the same server, for safety concerns i have tried a maximum of 50 processes;
+        When tried with the input n value 8,nearly 5 of process had parent id 1. Fraction  of process adopted by init is 0.5
+        For input n value 20, 9 of process had parent id 1.Fraction of process adopted by init is 0.46
+        For input n value 50, 18 processes were adopted by init and the fraction is 0.35
+        As the number of processes increased the number of process adopted by init also increases gradually,but the fraction of process adopted by init decreases with above observations.
+
+3.8.4   When sleep(10) is placed before the final fprintf statement the program sleeps for 10 seconds and then prints the fprintf contents.
+        Considering safety in a shared server environment, I have tried for a maximum of 14.
+        i:1 process ID:26439 parent ID:13554 child ID:26440
+        i:2 process ID:26440 parent ID:26439 child ID:26441
+        i:4 process ID:26442 parent ID:26441 child ID:26443
+        i:5 process ID:26443 parent ID:26442 child ID:26444
+        i:3 process ID:26441 parent ID:1 child ID:26442
+        i:6 process ID:26444 parent ID:1 child ID:26445
+        [kuppubab@hoare7 exqn]$ i:7 process ID:26445 parent ID:26444 child ID:26446
+        i:8 process ID:26446 parent ID:1 child ID:26447
+        i:9 process ID:26447 parent ID:26446 child ID:26448
+        i:10 process ID:26448 parent ID:1 child ID:26449
+        i:11 process ID:26449 parent ID:1 child ID:26450
+        i:12 process ID:26450 parent ID:26449 child ID:26451
+        i:13 process ID:26451 parent ID:1 child ID:26452
+        i:14 process ID:26452 parent ID:26451 child ID:0
+
+3.8.5   When n,k,m given as 4, 3, and 5; 4 number of processes are forked.The processes with the values of i as 1,2,3,4 are printed once and after sleeping for about m(here 5) seconds it
+        again prints processes (i=1,i=2,i=3,i=4).It continues until k(here 3) number of times the n(here 4) number of processes have been printed.
+        As in general case, attimes the latter process values are printed before its parent process.
+        i=1 process ID:15843 parent ID:30716 child ID:15845
+        i=2 process ID:15845 parent ID:15843 child ID:15846
+        i=3 process ID:15846 parent ID:15845 child ID:15847
+        i=4 process ID:15847 parent ID:15846 child ID:0
+        i=1 process ID:15843 parent ID:30716 child ID:15845
+        i=2 process ID:15845 parent ID:15843 child ID:15846
+        i=4 process ID:15847 parent ID:15846 child ID:0
+        i=3 process ID:15846 parent ID:15845 child ID:15847
+        i=1 process ID:15843 parent ID:30716 child ID:15845
+        i=2 process ID:15845 parent ID:15843 child ID:15846
+        i=4 process ID:15847 parent ID:15846 child ID:0
+        i=3 process ID:15846 parent ID:15845 child ID:15847
+
+3.8.6   When wait was placed before the final fprintf statement, the processes were displayed in reverse order its because the parent process waited for termination of the child process.
+        The wait function causes the parent to suspend execution until a child's status becomes available which is usually on termination or stop state.
+        i:4 process ID:28323 parent ID:28322 child ID:0
+        i:3 process ID:28322 parent ID:28321 child ID:28323
+        i:2 process ID:28321 parent ID:28320 child ID:28322
+        i:1 process ID:28320 parent ID:13554 child ID:28321
+
+3.8.7   When the program is run, we can view the process i value,its process id,parent process id and child process id.
+        Even though a single fprintf was splitted into 4 separate fprintfs, when tried with n values as 3,4,7 and 8 we can say which process generated which part of the output.
+        Output for n=8:
+        i:1process ID:29052parent ID:13554child ID:29053
+        i:2process ID:29053parent ID:1child ID:29054
+        i:3process ID:29054parent ID:1child ID:29055
+        i:4process ID:29055parent ID:1child ID:29056
+        i:5process ID:29056parent ID:1child ID:29057
+        i:6process ID:29057parent ID:1child ID:29058
+        i:7process ID:29058parent ID:1child ID:29059
+        i:8process ID:29059parent ID:1child ID:0
+
+3.8.8   In observation,the output pattern appears to be strange every time, since the processes are accessing the characters at the same time.
+        When entered 2 2 as n and nchar, the input output is as below,
+        a
+        a
+        b
+        b
+        c
+        12269:bc
+        c
+        d
+        d
+        12268:ac
+        as seen above the user has to continously enter characters until of the processes have exited.As a result, each process takes up randomly the 3 characters and stores them.
+        At times the processes may even end up of without storing character.

@@ -1,0 +1,16 @@
+RCS file: my_prog.c,v
+Working file: my_prog.c
+head: 1.1
+branch:
+locks: strict
+access list:
+symbolic names:
+keyword substitution: kv
+total revisions: 1;     selected revisions: 1
+description:
+my_prog program uses getopt & perror functions
+----------------------------
+revision 1.1
+date: 2018/09/11 04:52:09;  author: kuppubab;  state: Exp;
+Initial revision
+=============================================================================

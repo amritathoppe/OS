@@ -1,0 +1,11 @@
+CC = gcc
+CFLAGS = -g
+RM =rm -f
+
+default:all
+all : ass1
+
+ass1: my_prog.c
+        $(CC) $(CFLAGS) -o ass1 my_prog.c
+clean:
+        rm -f ass1
