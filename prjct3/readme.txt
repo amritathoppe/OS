@@ -1,5 +1,5 @@
 Read me file:
-kuppubab.3 contains assignment submission programs.
+prjct3 contains assignment submission programs.
 
 content.h //Shared Memory datastructure
 childshm.h//For child details
